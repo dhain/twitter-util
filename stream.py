@@ -14,27 +14,37 @@ import util
 
 
 _API_URL = 'http://stream.twitter.com/1/statuses/%s.json?delimited=length'
+_TIMEOUT = 1.0
+_MAX_TIMEOUTS = 60
 
 
-def copy_response_to_stream(res, dest):
+def _get_sock_and_buffers_from_response(res):
     # peel back the layers to get a real socket object
     # (urllib.addinfourl, httplib.HTTPResponse, socket._fileobject, etc.)
     f = res.fp
     data = f._rbuf.getvalue()
-    if data:
-        dest.write(data)
     f = f._sock.fp
-    data = f._rbuf.getvalue()
+    data += f._rbuf.getvalue()
+    sock = f._sock
+    return sock, data
+
+
+def copy_response_to_stream(res, dest):
+    log = logging.getLogger('copy_response_to_stream')
+    sock, data = _get_sock_and_buffers_from_response(res)
     if data:
         dest.write(data)
-    sock = f._sock
-
-    sock.settimeout(1.0)
+    sock.settimeout(_TIMEOUT)
     has_sent_data = False
+    n_timeouts = 0
     while True:
         try:
             data = sock.recv(4096)
         except urllib2.socket.timeout:
+            n_timeouts += 1
+            if n_timeouts > _MAX_TIMEOUTS:
+                log.warn('stream timed out, resetting connection')
+                break
             if has_sent_data:
                 has_sent_data = False
                 dest.flush()
@@ -44,6 +54,7 @@ def copy_response_to_stream(res, dest):
                 continue
         if not data:
             break
+        n_timeouts = 0
         has_sent_data = True
         dest.write(data)
 
