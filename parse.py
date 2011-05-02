@@ -1,4 +1,4 @@
-"""Read the Twitter stream from stdin, and parse messages.
+"""Read the Twitter stream from stdin, and print irc messages.
 """
 import sys
 import json
@@ -30,8 +30,22 @@ def parse(f):
         yield obj
 
 
+def make_irc_messages(stream):
+    log = logging.getLogger('make_irc_messages')
+    for obj in stream:
+        if 'text' in obj:
+            try:
+                yield (u'%s: %s' % (
+                    obj['user']['screen_name'],
+                    obj['text'],
+                )).replace('\n', ' ').encode('utf-8')
+            except Exception:
+                log.traceback('error making message')
+
+
 if __name__ == '__main__':
     util.initialize_logging()
-    import pprint
-    for data in parse(sys.stdin):
-        pprint.pprint(data)
+    stream = parse(sys.stdin)
+    stream = make_irc_messages(stream)
+    for msg in stream:
+        print msg

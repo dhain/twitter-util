@@ -8,3 +8,11 @@ def initialize_logging():
         level=logging.DEBUG,
         stream=sys.stderr,
     )
+
+
+def consumer(func):
+    def start(*args, **kwargs):
+        c = func(*args, **kwargs)
+        c.next()
+        return c
+    return start
