@@ -19,6 +19,8 @@ stream.py
 Connect to Twitter Streaming API and spit it back out on stdout. This handles
 reconnecting, backoff, etc.
 
+### Usage
+
     $ python stream.py --help
     usage: stream.py [-h] --username USERNAME --password PASSWORD [track]
 
@@ -41,6 +43,8 @@ parse.py
 
 Convert raw Twitter data into IRC messages of the form: `username: tweet text`
 
+### Usage
+
     $ python parse.py
 
 
@@ -53,6 +57,7 @@ TODO:
 
 - rate limiting
 
+### Usage
 
     $ python irc.py --help
     usage: irc.py [-h] [--ident IDENT] [--realname REALNAME] [--password PASSWORD]
