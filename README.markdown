@@ -5,6 +5,14 @@ These are some Python scripts useful for relaying Twitter messages to IRC (and
 in the future, do other fun things with it).
 
 
+Example Usage
+-------------
+
+    $ python stream.py -u <your username> -p <your password> "online backup,#backup,@spideroak" |
+    > python parse.py |
+    > python irc.py irc.yourdomain.com MyNick \#mychannel -s
+
+
 stream.py
 ---------
 
