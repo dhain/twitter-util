@@ -4,6 +4,7 @@ import sys
 import logging
 import socket
 import ssl
+import time
 import argparse
 import threading
 from collections import deque
@@ -13,6 +14,7 @@ import util
 
 
 _TIMEOUT = 240 # 4 min
+_RECONNECT_WAIT = 5
 
 
 class ConnectionManager(object):
@@ -26,6 +28,7 @@ class ConnectionManager(object):
         self.password = password
         self.channels = set(channels)
         self.sock = None
+        self.recv_obj = None
         self.buf = ''
         self.lines = deque()
         self._recv_lock = threading.RLock()
@@ -38,14 +41,27 @@ class ConnectionManager(object):
         self.send(['PONG', msg[1]])
         self.log.debug('pong')
 
-    def _recv_with_timeout_handling(self):
-        try:
-            data = self.sock.recv(1024)
-        except (socket.error, socket.timeout, ssl.SSLError), err:
-            self.log.warn('receive error, reconnecting (error was %r)', err)
-            self.connect()
-        else:
-            return data
+    def _recv_with_error_handling(self):
+        while True:
+            try:
+                data = self.recv_obj.recv(1024, timeout=_TIMEOUT)
+            except util.RecvInterrupted, err:
+                if err.args[0] == 'x':
+                    return ''
+                self.log.warn('receive timed out, reconnecting')
+                self.connect()
+            except (socket.error, socket.timeout, ssl.SSLError), err:
+                self.log.warn('receive error, reconnecting (error was %r)', err)
+                self.connect()
+            else:
+                return data
+
+    def shutdown(self):
+        self.recv_obj.interrupt('x')
+        with nested(self._recv_lock, self._send_lock):
+            self.recv_obj = None
+            self.sock.close()
+            self.sock = None
 
     def __iter__(self):
         return self
@@ -58,7 +74,7 @@ class ConnectionManager(object):
         except IndexError:
             with self._recv_lock:
                 while not self.lines:
-                    data = self._recv_with_timeout_handling()
+                    data = self._recv_with_error_handling()
                     if not data:
                         raise StopIteration()
                     self.buf += data
@@ -90,13 +106,17 @@ class ConnectionManager(object):
 
     def connect(self):
         with nested(self._recv_lock, self._send_lock):
+            if self.sock is not None:
+                self.sock.close()
+                self.log.debug('waiting to reconnect')
+                time.sleep(_RECONNECT_WAIT)
             self.log.debug('connecting to %s:%d...', self.host, self.port)
             self.buf = ''
             sock = socket.socket()
             sock.connect((self.host, self.port))
             self.log.debug('connected, sending ident')
             self.sock = ssl.wrap_socket(sock)
-            self.sock.settimeout(_TIMEOUT)
+            self.recv_obj = util.RecvInterrupter(self.sock)
             if self.password is not None:
                 self.send(['PASS', ':%s' % (self.password,)])
             self.send(['NICK', self.nick])
@@ -111,11 +131,9 @@ class ConnectionManager(object):
         self.send(['JOIN', channel])
 
 
-def print_messages(mgr, stop_event):
+def print_messages(mgr):
     for msg in mgr:
         print msg
-        if stop_event.is_set():
-            return
 
 
 def parse_args(args=None):
@@ -144,8 +162,7 @@ if __name__ == '__main__':
         args.channels
     )
     mgr.connect()
-    stop_event = threading.Event()
-    t = threading.Thread(target=print_messages, args=(mgr, stop_event))
+    t = threading.Thread(target=print_messages, args=(mgr,))
     t.start()
     try:
         while True:
@@ -155,5 +172,5 @@ if __name__ == '__main__':
             for channel in mgr.channels:
                 mgr.send(['PRIVMSG', channel, line])
     finally:
-        stop_event.set()
+        mgr.shutdown()
     t.join()
