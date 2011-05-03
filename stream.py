@@ -2,7 +2,6 @@
 
 Handles reconnection, backoff, etc.
 """
-import os
 import sys
 import time
 import urllib
@@ -114,7 +113,9 @@ def handle_network_error_backoff(stream, min_wait=0.25, max_wait=16):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--track')
+    parser.add_argument('track', nargs='?', help='keywords to track (optional, uses sample stream if omitted)')
+    parser.add_argument('--username', '-u', required=True, help='twitter api username (required)')
+    parser.add_argument('--password', '-p', required=True, help='twitter api password (required)')
     return parser.parse_args(args)
 
 
@@ -124,13 +125,11 @@ if __name__ == '__main__':
     log = logging.getLogger(__name__)
 
     url = _API_URL % ('filter' if args.track else 'sample',)
-    username = os.environ['TWITTER_USER']
-    password = os.environ['TWITTER_PASS']
     kwargs = {}
     if args.track:
         kwargs['track'] = args.track
 
-    stream = stream(sys.stdout, url, username, password, **kwargs)
+    stream = stream(sys.stdout, url, args.username, args.password, **kwargs)
     stream = handle_http_error_backoff(stream)
     stream = handle_network_error_backoff(stream)
 
