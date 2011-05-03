@@ -49,3 +49,4 @@ if __name__ == '__main__':
     stream = make_irc_messages(stream)
     for msg in stream:
         print msg
+        sys.stdout.flush()
