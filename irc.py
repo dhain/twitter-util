@@ -56,13 +56,6 @@ class ConnectionManager(object):
             else:
                 return data
 
-    def shutdown(self):
-        self.recv_obj.interrupt('x')
-        with nested(self._recv_lock, self._send_lock):
-            self.recv_obj = None
-            self.sock.close()
-            self.sock = None
-
     def __iter__(self):
         return self
 
@@ -104,6 +97,11 @@ class ConnectionManager(object):
         with self._send_lock:
             self.sock.sendall(data)
 
+    def join(self, channel):
+        self.log.debug('joining %s', channel)
+        self.channels.add(channel)
+        self.send(['JOIN', channel])
+
     def connect(self):
         with nested(self._recv_lock, self._send_lock):
             if self.sock is not None:
@@ -125,10 +123,12 @@ class ConnectionManager(object):
             for channel in self.channels:
                 self.join(channel)
 
-    def join(self, channel):
-        self.log.debug('joining %s', channel)
-        self.channels.add(channel)
-        self.send(['JOIN', channel])
+    def shutdown(self):
+        self.recv_obj.interrupt('x')
+        with nested(self._recv_lock, self._send_lock):
+            self.recv_obj = None
+            self.sock.close()
+            self.sock = None
 
 
 def print_messages(mgr):
