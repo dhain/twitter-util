@@ -173,4 +173,4 @@ if __name__ == '__main__':
                 mgr.send(['PRIVMSG', channel, line])
     finally:
         mgr.shutdown()
-    t.join()
+        t.join()
