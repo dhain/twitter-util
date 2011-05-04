@@ -41,6 +41,7 @@ class TweetDb(object):
             return False
         offset = self.outfile.tell()
         self.outfile.write(data)
+        self.outfile.flush()
         with self.db:
             self.db.execute(
                 'insert into tweet (tweet_id, timestamp, name, '
