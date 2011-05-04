@@ -3,8 +3,10 @@
 import sys
 import json
 import logging
+import time
 
 import util
+import tweet_db
 
 
 def parse(f):
@@ -27,6 +29,13 @@ def parse(f):
         except ValueError:
             log.debug('invalid json message: %r', data)
             continue
+        yield obj, data
+
+
+def add_to_db(stream, db):
+    for obj, data in stream:
+        if 'text' in obj:
+            db.add(obj, data)
         yield obj
 
 
@@ -45,7 +54,9 @@ def make_irc_messages(stream):
 
 if __name__ == '__main__':
     util.initialize_logging()
+    db = tweet_db.TweetDb()
     stream = parse(sys.stdin)
+    stream = add_to_db(stream, db)
     stream = make_irc_messages(stream)
     for msg in stream:
         print msg
