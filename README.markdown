@@ -43,6 +43,8 @@ parse.py
 
 Convert raw Twitter data into IRC messages of the form: `username: tweet text`
 
+Also log tweets to a sqlite database for later analysis.
+
 ### Usage
 
     $ python parse.py
