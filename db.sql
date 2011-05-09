@@ -9,3 +9,4 @@ create table tweet (
     stream_length integer not null
 );
 create index tweet_screen_name_idx on tweet (screen_name);
+create index tweet_timestamp_idx on tweet(timestamp);

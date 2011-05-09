@@ -45,3 +45,39 @@ class RecvInterrupter(object):
     def interrupt(self, flag=' '):
         self._wp.poll()
         os.write(self._w, flag)
+
+
+def slice_to_limit(limit_slice):
+    if isinstance(limit_slice, (int, long)):
+        limit_slice = slice(limit_slice)
+    if limit_slice.step is not None:
+        raise TypeError('step is not supported')
+    if (
+        (limit_slice.stop is not None and limit_slice.stop < 0) or
+        (limit_slice.start is not None and limit_slice.start < 0)
+    ):
+        raise NotImplementedError('negative slice values not supported')
+    if (
+        (limit_slice.stop is not None and
+         not isinstance(limit_slice.stop, (int, long))) or
+        (limit_slice.start is not None and
+         not isinstance(limit_slice.start, (int, long)))
+    ):
+        raise TypeError('slice values must be numbers')
+    if (
+        limit_slice.start is not None and
+        limit_slice.stop is not None and
+        limit_slice.stop < limit_slice.start
+    ):
+        raise ValueError('stop must be greater than start')
+    offset = limit_slice.start
+    limit = (None if limit_slice.stop is None else (
+        limit_slice.stop if limit_slice.start is None
+        else limit_slice.stop - limit_slice.start))
+    if offset is None and limit is None:
+        return ''
+    if offset is None:
+        return 'limit %d' % (limit,)
+    if limit is None:
+        return 'limit %d, -1' % (offset,)
+    return 'limit %d, %d' % (offset, limit)

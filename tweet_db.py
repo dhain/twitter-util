@@ -4,10 +4,15 @@ import datetime
 import logging
 import sqlite3
 import json
+from collections import namedtuple
+
+import util
 
 
 SCHEMA = open(os.path.join(os.path.dirname(__file__), 'db.sql')).read()
 MAX_STREAM_FILE_SIZE = 100 * 1024 * 1024 # 100mb
+
+TweetInfo = namedtuple('TweetInfo', 'tweet_id timestamp name screen_name text')
 
 
 class TweetDb(object):
@@ -54,6 +59,8 @@ class TweetDb(object):
         return True
 
     def __getitem__(self, tweet_id):
+        if not isinstance(tweet_id, (int, long)):
+            return self.__iter__(tweet_id)
         cur = self.db.cursor()
         cur.execute('select stream_file, stream_offset, stream_length '
                     'from tweet where tweet_id=?', (tweet_id,))
@@ -66,3 +73,17 @@ class TweetDb(object):
             if not isinstance(err, TypeError):
                 self.log.exception('error reading tweet')
             raise KeyError(tweet_id)
+
+    def __len__(self):
+        return self.db.execute('select count(*) from tweet').fetchone()[0]
+
+    def __iter__(self, limit_slice=None, descending=True):
+        limit = '' if limit_slice is None else util.slice_to_limit(limit_slice)
+        cur = self.db.cursor()
+        cur.execute(
+            'select tweet_id, timestamp, name, screen_name, text '
+            'from tweet order by timestamp '
+            '%s %s' % ('desc' if descending else 'asc', limit)
+        )
+        for row in cur:
+            yield TweetInfo(*row)
